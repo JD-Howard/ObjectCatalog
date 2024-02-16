@@ -1,0 +1,11 @@
+**/bin/**
+**/obj/**
+/.vs/**
+/.idea/**
+/Temp/**
+/packages/**
+
+*.DotSettings.user
+*.bak
+*.sln.DotSettings.user
+desktop.ini

@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObjectCatalog", "ObjectCatalog\ObjectCatalog.csproj", "{D187564B-E56F-4CD3-8249-00E063FDA426}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObjectCatalogTests", "ObjectCatalogTests\ObjectCatalogTests.csproj", "{1C40C3B2-2053-4C1C-895D-388882B70C93}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D187564B-E56F-4CD3-8249-00E063FDA426}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D187564B-E56F-4CD3-8249-00E063FDA426}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D187564B-E56F-4CD3-8249-00E063FDA426}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D187564B-E56F-4CD3-8249-00E063FDA426}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C40C3B2-2053-4C1C-895D-388882B70C93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C40C3B2-2053-4C1C-895D-388882B70C93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C40C3B2-2053-4C1C-895D-388882B70C93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C40C3B2-2053-4C1C-895D-388882B70C93}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
