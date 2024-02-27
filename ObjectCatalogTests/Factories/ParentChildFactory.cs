@@ -1,4 +1,4 @@
-﻿using ObjectCatalogTests.Models;
+﻿using ObjectCatalogTests.DataModels;
 
 namespace ObjectCatalogTests.Factories;
 

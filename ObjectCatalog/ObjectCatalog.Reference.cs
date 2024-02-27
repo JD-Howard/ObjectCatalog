@@ -1,7 +1,13 @@
 ﻿namespace System.Collections.Specialized;
 
-public partial class ObjectCatalog<T>
+public sealed partial class ObjectCatalog<T>
 {
+    
+    /// <summary>
+    /// Internal class responsible for wrapping the ObjectCatalogs T objects. This exists to
+    /// enable weak references that do not prevent garbage collection. In most cases the
+    /// ObjectCatalog is mostly an assistant to data analysis, it wasn't intended to be the sole source of models
+    /// </summary>
     internal class Reference : IDisposable
     {
         private T? _strong;
@@ -24,7 +30,10 @@ public partial class ObjectCatalog<T>
             
             if (_weak?.TryGetTarget(out var obj) == true)
                 return obj;
-            
+
+            // without a weak reference this whole object is effectively dead
+            // increase performance of future requests by disposing our wrapper
+            Dispose(); 
             return null;
         }
         
@@ -39,6 +48,6 @@ public partial class ObjectCatalog<T>
             _weak = null;
         }
         
-        public static implicit operator T?(Reference obj) => obj.Materialize();
+        //public static implicit operator T?(Reference obj) => obj.Materialize();
     }
 }

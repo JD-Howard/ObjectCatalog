@@ -21,26 +21,47 @@ many operations as necessary to use as little RAM as possible.
 
 namespace System.Collections.Specialized;
 
-public partial class ObjectCatalog<T> : IDisposable where T : class
+public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
 {
     private readonly Dictionary<string, IValueIndex> _indices = new();
     private readonly List<Reference> _sources = new();
     private readonly ObjectCatalogType _refType;
     private readonly bool _allowNullKeys;
     private readonly WeakReference<ObservableCollection<T>>? _observable = null;
-    private readonly T?[] _default = Array.Empty<T>();
+    private static readonly T?[] DefaultArrNullT = Array.Empty<T>();
+    private static readonly T[] DefaultArrT = Array.Empty<T>();
+    private static readonly int[] DefaultArrInt = Array.Empty<int>();
+    private static readonly FindResult DefaultResult = new FindResult();
 
+    public int Count => _sources.Count;
+    
     /// <summary>
     /// If your using the ObjectCatalogType.WeakReference (default)
     /// behavior, then use your source list instead of GetItems()
     /// </summary>
-    public T?[] GetItems() 
+    public T?[] Get() 
         => _sources.Select(x => x.Materialize()).ToArray();
 
-    public ObjectCatalog(
-        IEnumerable<T> source, 
-        ObjectCatalogType refType = ObjectCatalogType.WeakReferenced, 
-        ObjectCatalogBehavior behavior = ObjectCatalogBehavior.IndexNonNullValues)
+    internal T?[] GetInternal(int[]? targets)
+        => targets is null ? DefaultArrNullT : targets.Select(i => _sources[i].Materialize()).ToArray();
+    
+    
+    public T[] GetNonNull() 
+        => _sources.Select(x => x.Materialize()).Where(y => y is not null).ToArray()!;
+    internal T[] GetInternalNonNull(int[]? targets)
+        => targets is null ? DefaultArrT : targets.Select(i => _sources[i].Materialize()).Where(y => y is not null).ToArray();
+
+
+    
+    public static IObjectCatalog<T> Create(IEnumerable<T> source)
+        => new ObjectCatalog<T>(source, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IndexNonNullValues);
+    public static IObjectCatalog<T> Create(IEnumerable<T> source, ObjectCatalogType refType)
+        => new ObjectCatalog<T>(source, refType, ObjectCatalogBehavior.IndexNonNullValues);
+    public static IObjectCatalog<T> Create(IEnumerable<T> source, ObjectCatalogType refType, ObjectCatalogBehavior behavior)
+        => new ObjectCatalog<T>(source, refType, behavior);
+    
+    private ObjectCatalog() { }
+    private ObjectCatalog(IEnumerable<T> source, ObjectCatalogType refType, ObjectCatalogBehavior behavior)
     {
         if (source is ObservableCollection<T> col)
         {
@@ -49,7 +70,7 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
         }
 
         _refType = refType;
-        _allowNullKeys = behavior == ObjectCatalogBehavior.IncludeNulls;
+        _allowNullKeys = behavior == ObjectCatalogBehavior.IndexNulls;
         foreach (var item in source)
         {
             if (item is null)
@@ -58,6 +79,8 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
             _sources.Add(new Reference(item, _refType));
         }
     }
+
+    
 
         
 
@@ -70,7 +93,7 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
                     Add(item as T);
                 break;
             case NotifyCollectionChangedAction.Remove:
-                var items = GetItems();
+                var items = Get();
                 foreach (var item in e.OldItems)
                     RemoveInternal(item as T, items);
                 break;
@@ -83,7 +106,7 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
     public void Remove(T? item)
     {
         if (item is not null)
-            RemoveInternal(item, GetItems());
+            RemoveInternal(item, Get());
     }
 
     private void RemoveInternal(T? item, T?[] trackedItems)
@@ -116,7 +139,9 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
     }
 
         
-    public T?[] Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey)
+    public IObjCatalogFindResult Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey) 
+        => FindResult.From(FindInternal(accessor, valueKey, null), this);
+    public int[] FindInternal<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey, int[]? filter)
     {
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
@@ -125,34 +150,35 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
         if (!_indices.ContainsKey(name))
             AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null);
 
-        return Find(name, valueKey);
+        return FindInternal(name, valueKey, null);
     }
 
-    public T?[] Find<TNormal>(Enum indexPath, TNormal? valueKey)
-        => Find(indexPath.ToString(), valueKey);
-        
-    public T?[] Find<TNormal>(string accessKey, TNormal? valueKey)
+    
+    public IObjCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
+        => FindResult.From(FindInternal(indexType.ToString(), valueKey, null), this);
+    
+    
+    public IObjCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey) 
+        => FindResult.From(FindInternal(accessKey, valueKey, null), this);
+    internal int[] FindInternal<TNormal>(string accessKey, TNormal? valueKey, int[]? filter)
     {
         if (string.IsNullOrWhiteSpace(accessKey))
             throw new ArgumentException("Accessor cannot be null or empty.");
 
         if (valueKey is null && !_allowNullKeys)
-            return _default;
+            return DefaultArrInt;
 
         _indices.TryGetValue(accessKey, out var index);
-                
-        var targets = index?.Find(valueKey);
-        if (targets is null)
-            return _default;
-
-        return targets.Select(i => _sources[i].Materialize()).ToArray();
+        return index?.Find(valueKey, filter) ?? DefaultArrInt;
     }
 
-        
-        
-        
-        
-    public T? FirstOrDefault<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey)
+    
+    
+    
+
+    public T? FirstOrDefault<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey)
+        => FirstInternal(accessor, valueKey, null);
+    internal T? FirstInternal<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey, int[]? filter)
     {
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
@@ -164,10 +190,14 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
         return FirstOrDefault(name, valueKey);
     }
 
-    public T? FirstOrDefault<TNormal>(Enum indexPath, TNormal? valueKey)
-        => FirstOrDefault(indexPath.ToString(), valueKey);
-        
+    
+    public T? FirstOrDefault<TNormal>(Enum indexType, TNormal? valueKey)
+        => FirstOrDefault(indexType.ToString(), valueKey);
+
+    
     public T? FirstOrDefault<TNormal>(string accessKey, TNormal? valueKey)
+        => FirstInternal(accessKey, valueKey, null);
+    internal T? FirstInternal<TNormal>(string accessKey, TNormal? valueKey, int[]? filter)
     {
         if (string.IsNullOrWhiteSpace(accessKey))
             throw new ArgumentException("Accessor cannot be null or empty.");
@@ -177,7 +207,7 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
 
         _indices.TryGetValue(accessKey, out var index);
                 
-        var targets = index?.Find(valueKey);
+        var targets = index?.Find(valueKey, filter);
         if (targets is null)
             return null;
 
@@ -191,13 +221,13 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
         
         
         
-    public ObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp) 
+    public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp) 
         => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile());
 
-    public ObjectCatalog<T> AddIndex<TResult>(Enum indexPath, Func<T, TResult> accessor)
+    public IObjectCatalog<T> AddIndex<TResult>(Enum indexPath, Func<T, TResult> accessor)
         => AddIndex(indexPath.ToString(), accessor);
 
-    public ObjectCatalog<T> AddIndex<TResult>(string indexPath, Func<T, TResult> accessor)
+    public IObjectCatalog<T> AddIndex<TResult>(string indexPath, Func<T, TResult> accessor)
     {
         if (indexPath is null)
             throw new ArgumentException("IndexPath cannot be null.");
@@ -214,13 +244,13 @@ public partial class ObjectCatalog<T> : IDisposable where T : class
         
         
         
-    public ObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer)
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer)
         => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer);
 
-    public ObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
         => AddIndex(indexPath.ToString(), accessor, normalizer);
         
-    public ObjectCatalog<T> AddIndex<TResult, TNormal>(string indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(string indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
     {
         if (indexPath is null)
             throw new ArgumentException("IndexPath cannot be null.");

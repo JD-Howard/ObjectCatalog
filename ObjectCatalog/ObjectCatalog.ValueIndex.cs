@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace System.Collections.Specialized;
 
-public partial class ObjectCatalog<T>
+public sealed partial class ObjectCatalog<T>
 {
     internal class ValueIndex<TResult> : IValueIndex
     {
@@ -20,21 +20,26 @@ public partial class ObjectCatalog<T>
             _accessor = accessor;
         }
 
-        public int[]? Find(object? key)
+        public int[]? Find(object? key, int[]? filter)
         {
             if (key is null)
                 return _nullCase.Any() ? _nullCase.ToArray() : null;
 
+            // This line is preventing a normalizer from being something capable of implicit/equals() matching
+            // You could work around this if TResult was actually type Object, but that adds more boxing.
+            // Since I've already null checked, the TryGetValue should be able to work with type object.
+            // Might even limit the number of IEquality implementations necessary for end user wrappers.
+            // TODO: perform performance tests between TResult & object
             if (key is not TResult typedKey)
                 return null;
             
             if (!_valueIndex.TryGetValue(typedKey, out var index))
                 return null;
             
-            return index.ToArray();
+            return filter?.Intersect(index).ToArray() ?? index.ToArray();
         }
 
-        public virtual void Add(T obj, int objectId, bool allowNullKeys)
+        public void Add(T obj, int objectId, bool allowNullKeys)
         {
             var value = _accessor(obj);
 
@@ -64,7 +69,7 @@ public partial class ObjectCatalog<T>
             }
         }
 
-        public virtual void Dispose()
+        public void Dispose()
         {
             if (_isDisposed)
                 return;

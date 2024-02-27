@@ -1,8 +1,8 @@
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using ObjectCatalogTests.DataModels;
 using ObjectCatalogTests.Factories;
-using ObjectCatalogTests.Models;
 using Xunit.Abstractions;
 
 namespace ObjectCatalogTests;
@@ -26,25 +26,25 @@ public class ConfigurationPerformanceTests
         var sw = new Stopwatch();
         
         sw.Restart();
-        var catalog1 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference);
+        var catalog1 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference);
         sw.Stop();
         var strong = sw.Elapsed.TotalMilliseconds;
         _testContext.WriteLine($"Strong Referenced Construction Time: {_quantity:N0} = {strong}ms");
 
         sw.Restart();
-        var items1 = catalog1.GetItems();
+        var items1 = catalog1.Get();
         sw.Stop();
         var strongGetItems = sw.Elapsed.TotalMilliseconds;
         _testContext.WriteLine($"Strong Referenced GetItems() Time: {_quantity:N0} = {strongGetItems}ms");
         
         sw.Restart();
-        var catalog2 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.WeakReferenced);
+        var catalog2 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.WeakReferenced);
         sw.Stop();
         var weak = sw.Elapsed.TotalMilliseconds;
         _testContext.WriteLine($"Weak Referenced Construction Time: {_quantity:N0} = {weak}ms");
         
         sw.Restart();
-        var items2 = catalog2.GetItems();
+        var items2 = catalog2.Get();
         sw.Stop();
         var weakGetItems = sw.Elapsed.TotalMilliseconds;
         _testContext.WriteLine($"Weak Referenced GetItems() Time: {_quantity:N0} = {weakGetItems}ms");
@@ -71,12 +71,12 @@ public class ConfigurationPerformanceTests
     {
         var sw = new Stopwatch();
         var totalMs = 0.0;
-        var catalog1 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference);
-        var catalog2 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference);
+        var catalog1 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference);
+        var catalog2 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference);
         var weakRefs1 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog3 = new ObjectCatalog<ParentItem>(weakRefs1, ObjectCatalogType.WeakReferenced);
+        var catalog3 = ObjectCatalog<ParentItem>.Create(weakRefs1, ObjectCatalogType.WeakReferenced);
         var weakRefs2 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog4 = new ObjectCatalog<ParentItem>(weakRefs2, ObjectCatalogType.WeakReferenced);
+        var catalog4 = ObjectCatalog<ParentItem>.Create(weakRefs2, ObjectCatalogType.WeakReferenced);
         
         
         sw.Restart();
@@ -124,12 +124,12 @@ public class ConfigurationPerformanceTests
     {
         var sw = new Stopwatch();
         var totalMs = 0.0;
-        var catalog1 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference);
-        var catalog2 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference);
+        var catalog1 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference);
+        var catalog2 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference);
         var weakRefs1 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog3 = new ObjectCatalog<ParentItem>(weakRefs1, ObjectCatalogType.WeakReferenced);
+        var catalog3 = ObjectCatalog<ParentItem>.Create(weakRefs1, ObjectCatalogType.WeakReferenced);
         var weakRefs2 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog4 = new ObjectCatalog<ParentItem>(weakRefs2, ObjectCatalogType.WeakReferenced);
+        var catalog4 = ObjectCatalog<ParentItem>.Create(weakRefs2, ObjectCatalogType.WeakReferenced);
         
         
         sw.Restart();
@@ -178,12 +178,12 @@ public class ConfigurationPerformanceTests
     {
         var sw = new Stopwatch();
         var totalMs = 0.0;
-        var catalog1 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IncludeNulls);
-        var catalog2 = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IncludeNulls);
+        var catalog1 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IndexNulls);
+        var catalog2 = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IndexNulls);
         var weakRefs1 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog3 = new ObjectCatalog<ParentItem>(weakRefs1, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IncludeNulls);
+        var catalog3 = ObjectCatalog<ParentItem>.Create(weakRefs1, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IndexNulls);
         var weakRefs2 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog4 = new ObjectCatalog<ParentItem>(weakRefs2, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IncludeNulls);
+        var catalog4 = ObjectCatalog<ParentItem>.Create(weakRefs2, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IndexNulls);
         
         
         sw.Restart();
@@ -232,9 +232,9 @@ public class ConfigurationPerformanceTests
         var sw = new Stopwatch();
         var totalMs = 0.0;
         var strongRefs1 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog1 = new ObjectCatalog<ParentItem>(strongRefs1, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IncludeNulls);
+        var catalog1 = ObjectCatalog<ParentItem>.Create(strongRefs1, ObjectCatalogType.StrongReference, ObjectCatalogBehavior.IndexNulls);
         var weakRefs2 = ParentChildFactory.PerformanceTesting(_quantity);
-        var catalog2 = new ObjectCatalog<ParentItem>(weakRefs2, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IncludeNulls);
+        var catalog2 = ObjectCatalog<ParentItem>.Create(weakRefs2, ObjectCatalogType.WeakReferenced, ObjectCatalogBehavior.IndexNulls);
         
         
         sw.Restart();

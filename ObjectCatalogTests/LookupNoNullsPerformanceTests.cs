@@ -1,8 +1,8 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using ObjectCatalogTests.DataModels;
 using ObjectCatalogTests.Factories;
-using ObjectCatalogTests.Models;
 using Xunit.Abstractions;
 
 namespace ObjectCatalogTests;
@@ -12,8 +12,8 @@ public class LookupNoNullsPerformanceTests : IDisposable
     private readonly ITestOutputHelper _testContext;
     private List<ParentItem> _sources;
     private int _quantity = 1000000;
-    private readonly ObjectCatalog<ParentItem> _noNullCatalog;
-    private readonly ObjectCatalog<ParentItem> _noNullNormalCatalog;
+    private readonly IObjectCatalog<ParentItem> _noNullCatalog;
+    private readonly IObjectCatalog<ParentItem> _noNullNormalCatalog;
 
     private static string? GetChildDesc(ParentItem item) => item?.Child?.Description;
     private static string? GetChildName(ParentItem item) => item?.Child?.TypeName;
@@ -27,14 +27,14 @@ public class LookupNoNullsPerformanceTests : IDisposable
         ParentChildFactory.ApplyChaos(_sources, _quantity / 25, 25, x => x.Child.Description = null);
         ParentChildFactory.ApplyChaos(_sources, _quantity / 50, 3, x => x.Child = null);
         
-        _noNullCatalog = new ObjectCatalog<ParentItem>(_sources)
+        _noNullCatalog = ObjectCatalog<ParentItem>.Create(_sources)
             .AddIndex(x => x.UniqueId, y => y < _quantity / 100) // bool operational index
             .AddIndex(x => x.Name) // uniform
             .AddIndex(x => x.Description) // semi-uniform
             .AddIndex(x => x.Child)
             .AddIndex(x => GetChildName(x)) // unique
             .AddIndex(x => x.GetDescription()); // often can be null
-        _noNullNormalCatalog = new ObjectCatalog<ParentItem>(_sources, ObjectCatalogType.StrongReference)
+        _noNullNormalCatalog = ObjectCatalog<ParentItem>.Create(_sources, ObjectCatalogType.StrongReference)
             .AddIndex(x => x.Name, y => y?.ToUpper()) // uniform
             .AddIndex(x => x.Description, y => y?.ToUpper()) // semi-uniform
             .AddIndex(x => GetChildName(x), y => y?.ToUpper()) // unique
@@ -50,9 +50,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => x.UniqueId, isLessThenQtyDiv100);
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => x.UniqueId < _quantity / 100).ToArray();
@@ -60,7 +61,7 @@ public class LookupNoNullsPerformanceTests : IDisposable
         var whereTime = sw.Elapsed.TotalMilliseconds;
         _testContext.WriteLine($"Where Search Time Total Objects {_quantity:N0} : Found {whereResult.Length} in {whereTime}ms");
         
-        Assert.True(catalogResult.Length == whereResult.Length);
+        Assert.True(catalogResult.Count == whereResult.Length);
         // Observations: (1,000,000 objects)
         // I ran this using various quantity divider intervals, it follows the performance of everything else where the smaller
         // the returned number of objects, the better it performed.
@@ -79,9 +80,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => x.Description, "SemiUniform:Even");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "SemiUniform:Even".Equals(x.Description)).ToArray();
@@ -103,9 +105,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => x.Name, "Uniform");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "Uniform".Equals(x.Name)).ToArray();
@@ -127,9 +130,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullNormalCatalog.Find(x => x.Description, "SEMIUNIFORM:EVEN");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "SEMIUNIFORM:EVEN".Equals(x.Description?.ToUpper())).ToArray();
@@ -153,9 +157,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullNormalCatalog.Find(x => x.Name, "UNIFORM");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "UNIFORM".Equals(x.Name?.ToUpper())).ToArray();
@@ -190,9 +195,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => x.Child, target);
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => target.Equals(x.Child)).ToArray();
@@ -221,9 +227,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => GetChildName(x), "Stuff203");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "Stuff203".Equals(x.Child?.TypeName)).ToArray();
@@ -245,9 +252,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullCatalog.Find(x => x.GetDescription(), "Things203");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "Things203".Equals(x.Child?.Description)).ToArray();
@@ -269,9 +277,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullNormalCatalog.Find(x => GetChildName(x), "STUFF203");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "STUFF203".Equals(x.Child?.TypeName?.ToUpper())).ToArray();
@@ -295,9 +304,10 @@ public class LookupNoNullsPerformanceTests : IDisposable
         
         sw.Restart();
         var catalogResult = _noNullNormalCatalog.Find(x => x.GetDescription(), "THINGS203");
+        var items = catalogResult.Get();
         sw.Stop();
         var catalogTime = sw.Elapsed.TotalMilliseconds;
-        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Length} in {catalogTime}ms");
+        _testContext.WriteLine($"Catalog Search Time Total Objects {_quantity:N0} : Found {catalogResult.Count} in {catalogTime}ms");
 
         sw.Restart();
         var whereResult = _sources.Where(x => "THINGS203".Equals(x.Child?.Description?.ToUpper())).ToArray();

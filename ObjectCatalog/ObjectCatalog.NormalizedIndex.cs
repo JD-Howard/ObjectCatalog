@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace System.Collections.Specialized;
 
-public partial class ObjectCatalog<T>
+public sealed partial class ObjectCatalog<T>
 {
     internal class NormalizedIndex<TResult, TNormal> : IValueIndex
     {
@@ -24,7 +24,7 @@ public partial class ObjectCatalog<T>
         }
         
 
-        public int[]? Find(object? key)
+        public int[]? Find(object? key, int[]? filter)
         {
             if (key is null)
                 return _nullCase.Any() ? _nullCase.ToArray() : null;
@@ -35,7 +35,7 @@ public partial class ObjectCatalog<T>
             if (!_valueIndex.TryGetValue(typedKey, out var index))
                 return null;
             
-            return index.ToArray();
+            return filter?.Intersect(index).ToArray() ?? index.ToArray();
         }
         
 
