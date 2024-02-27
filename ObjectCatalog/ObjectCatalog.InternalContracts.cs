@@ -4,36 +4,44 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T>
 {
-    internal interface IValueIndex : IDisposable
+    internal interface IObjectCatalogIndex : IDisposable
     {
         internal string AccessKey { get; }
         internal int[]? Find(object? key, int[]? filter);
+        internal TValue[] GetKeys<TValue>();
         internal void Add(T obj, int objectId, bool allowNullKeys);
         internal void Remove(int objectId);
     }
     
     
-    public interface IObjCatalogIndices // ObjectCatalog only
+    public interface IObjectCatalogIndices // ObjectCatalog only
     {
         IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp);
-        IObjectCatalog<T> AddIndex<TResult>(Enum indexPath, Func<T, TResult> accessor);
-        IObjectCatalog<T> AddIndex<TResult>(string indexPath, Func<T, TResult> accessor);
+        IObjectCatalog<T> AddIndex<TResult>(Enum indexType, Func<T, TResult> accessor);
+        IObjectCatalog<T> AddIndex<TResult>(string accessKey, Func<T, TResult> accessor);
         IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer);
-        IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer);
-        IObjectCatalog<T> AddIndex<TResult, TNormal>(string indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer);
+        IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexType, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer);
+        IObjectCatalog<T> AddIndex<TResult, TNormal>(string accessKey, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer);
+    }
+
+    public interface IObjectCatalogIndexkeys // ObjectCatalog only 
+    {
+        TKey[] GetKeys<TKey>(Expression<Func<T, TKey>> accessor);
+        TKey[] GetKeys<TKey>(Enum indexType);
+        TKey[] GetKeys<TKey>(string accessKey);
     }
 
     public interface IObjectCatalogSearch // Result & IObjectCatalog
     {
-        IObjCatalogFindResult Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey);
-        IObjCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey);
-        IObjCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey);
+        IObjectCatalogFindResult Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey);
+        IObjectCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey);
+        IObjectCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey);
         T? FirstOrDefault<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey);
         T? FirstOrDefault<TNormal>(Enum indexType, TNormal? valueKey);
         T? FirstOrDefault<TNormal>(string accessKey, TNormal? valueKey);
     }
 
-    public interface IObjCatalogMaterialize // Result & IObjectCatalog
+    public interface IObjectCatalogMaterialize // Result & IObjectCatalog
     {
         int Count { get; }
         
@@ -46,5 +54,5 @@ public sealed partial class ObjectCatalog<T>
         IObjectCatalogSearch Then { get; }
     }
 
-    public interface IObjCatalogFindResult : IObjCatalogMaterialize, IObjCatalogResultExtend;
+    public interface IObjectCatalogFindResult : IObjectCatalogMaterialize, IObjCatalogResultExtend {}
 }

@@ -23,7 +23,7 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
 {
-    private readonly Dictionary<string, IValueIndex> _indices = new();
+    private readonly Dictionary<string, IObjectCatalogIndex> _indices = new();
     private readonly List<Reference> _sources = new();
     private readonly ObjectCatalogType _refType;
     private readonly bool _allowNullKeys;
@@ -139,7 +139,7 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     }
 
         
-    public IObjCatalogFindResult Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey) 
+    public IObjectCatalogFindResult Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey) 
         => FindResult.From(FindInternal(accessor, valueKey, null), this);
     public int[] FindInternal<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey, int[]? filter)
     {
@@ -154,11 +154,11 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     }
 
     
-    public IObjCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
+    public IObjectCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
         => FindResult.From(FindInternal(indexType.ToString(), valueKey, null), this);
     
     
-    public IObjCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey) 
+    public IObjectCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey) 
         => FindResult.From(FindInternal(accessKey, valueKey, null), this);
     internal int[] FindInternal<TNormal>(string accessKey, TNormal? valueKey, int[]? filter)
     {
@@ -224,21 +224,21 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp) 
         => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile());
 
-    public IObjectCatalog<T> AddIndex<TResult>(Enum indexPath, Func<T, TResult> accessor)
-        => AddIndex(indexPath.ToString(), accessor);
+    public IObjectCatalog<T> AddIndex<TResult>(Enum indexType, Func<T, TResult> accessor)
+        => AddIndex(indexType.ToString(), accessor);
 
-    public IObjectCatalog<T> AddIndex<TResult>(string indexPath, Func<T, TResult> accessor)
+    public IObjectCatalog<T> AddIndex<TResult>(string accessKey, Func<T, TResult> accessor)
     {
-        if (indexPath is null)
+        if (accessKey is null)
             throw new ArgumentException("IndexPath cannot be null.");
             
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
             
-        if (_indices.ContainsKey(indexPath))
+        if (_indices.ContainsKey(accessKey))
             return this;
             
-        AddIndexInternal<TResult,TResult>(indexPath, accessor, null);
+        AddIndexInternal<TResult,TResult>(accessKey, accessor, null);
         return this;
     }
         
@@ -247,12 +247,12 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer)
         => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer);
 
-    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
-        => AddIndex(indexPath.ToString(), accessor, normalizer);
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexType, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
+        => AddIndex(indexType.ToString(), accessor, normalizer);
         
-    public IObjectCatalog<T> AddIndex<TResult, TNormal>(string indexPath, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(string accessKey, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
     {
-        if (indexPath is null)
+        if (accessKey is null)
             throw new ArgumentException("IndexPath cannot be null.");
             
         if (accessor is null)
@@ -261,18 +261,18 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         if (normalizer is null)
             throw new ArgumentException("Normalizer cannot be null and must be a valid lambda expression.");
 
-        if (_indices.ContainsKey(indexPath))
+        if (_indices.ContainsKey(accessKey))
             return this;
             
-        AddIndexInternal(indexPath, accessor, normalizer);
+        AddIndexInternal(accessKey, accessor, normalizer);
         return this;
     }
         
         
         
-    private IValueIndex? AddIndexInternal<TResult,TNormal>(string name, Func<T, TResult?> accessor, Func<TResult?, TNormal?>? normalizer)
+    private IObjectCatalogIndex? AddIndexInternal<TResult,TNormal>(string name, Func<T, TResult?> accessor, Func<TResult?, TNormal?>? normalizer)
     {
-        IValueIndex index = normalizer is null
+        IObjectCatalogIndex index = normalizer is null
             ? new ValueIndex<TResult>(name, accessor)
             : new NormalizedIndex<TResult, TNormal>(name, accessor, normalizer);
                     
@@ -290,7 +290,38 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
             
         return index;
     }
+     
+    
+    public TKey[] GetKeys<TKey>(Expression<Func<T,TKey>> accessor)
+    {
+        if (accessor is null)
+            throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
+
+        var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
+        if (!_indices.ContainsKey(name))
+            return Array.Empty<TKey>();
+
+        return GetKeys<TKey>(name);
+    }
+
+    public TKey[] GetKeys<TKey>(Enum indexType)
+        => GetKeys<TKey>(indexType.ToString());
         
+    public TKey[] GetKeys<TKey>(string accessKey)
+    {
+        if (string.IsNullOrWhiteSpace(accessKey))
+            throw new ArgumentException("accessKey cannot be null or empty.");
+
+        _indices.TryGetValue(accessKey, out var index);
+
+        var targets = index?.GetKeys<TKey>();
+        if (targets is null)
+            return Array.Empty<TKey>();
+
+        return targets;
+    }
+    
+    
         
     public void Dispose() 
         => Reset(true);

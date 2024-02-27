@@ -5,7 +5,7 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T>
 {
-    internal class ValueIndex<TResult> : IValueIndex
+    internal class ValueIndex<TResult> : IObjectCatalogIndex
     {
         private Func<T, TResult?> _accessor;
         private Dictionary<TResult, HashSet<int>> _valueIndex = new();
@@ -69,6 +69,23 @@ public sealed partial class ObjectCatalog<T>
             }
         }
 
+        
+        public TValue[] GetKeys<TValue>()
+        {
+            var result = new TValue[_valueIndex.Count];
+            var index = 0;
+            foreach (var key in _valueIndex.Keys)
+            {
+                if (key is TValue value)
+                    result[index++] = value;
+                else
+                    index++;
+            }
+
+            return result;
+        }
+        
+        
         public void Dispose()
         {
             if (_isDisposed)

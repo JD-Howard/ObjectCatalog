@@ -5,7 +5,7 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T>
 {
-    public class FindResult : IObjectCatalogSearch, IObjCatalogFindResult
+    public class FindResult : IObjectCatalogSearch, IObjectCatalogFindResult
     {
         private int[]? _result;
         private WeakReference<ObjectCatalog<T>>? _parent;
@@ -16,7 +16,7 @@ public sealed partial class ObjectCatalog<T>
 
         internal FindResult(){}
 
-        public static IObjCatalogFindResult From(int[]? result, ObjectCatalog<T>? parent)
+        public static IObjectCatalogFindResult From(int[]? result, ObjectCatalog<T>? parent)
         {
             if (parent is null)
                 return DefaultResult;
@@ -28,19 +28,19 @@ public sealed partial class ObjectCatalog<T>
             };
         }
         
-        public IObjCatalogFindResult Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey)
+        public IObjectCatalogFindResult Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(accessor, valueKey, _result) ?? DefaultArrInt;
             return this;
         }
 
-        public IObjCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
+        public IObjectCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(indexType.ToString(), valueKey, _result) ?? DefaultArrInt;
             return this;
         }
 
-        public IObjCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey)
+        public IObjectCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(accessKey, valueKey, _result) ?? DefaultArrInt;
             return this;

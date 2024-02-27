@@ -5,7 +5,7 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T>
 {
-    internal class NormalizedIndex<TResult, TNormal> : IValueIndex
+    internal class NormalizedIndex<TResult, TNormal> : IObjectCatalogIndex
     {
         private Func<T, TResult?> _accessor;
         private Func<TResult?, TNormal?> _normalizer;
@@ -67,6 +67,22 @@ public sealed partial class ObjectCatalog<T>
                 if (wasRemoved && hash.Count == 0 && key is not null)
                     _valueIndex.Remove(key);
             }
+        }
+        
+        
+        public TValue[] GetKeys<TValue>()
+        {
+            var result = new TValue[_valueIndex.Count];
+            var index = 0;
+            foreach (var key in _valueIndex.Keys)
+            {
+                if (key is TValue value)
+                    result[index++] = value;
+                else
+                    index++;
+            }
+
+            return result;
         }
         
         
