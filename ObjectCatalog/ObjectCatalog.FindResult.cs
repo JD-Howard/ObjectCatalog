@@ -5,7 +5,7 @@ namespace System.Collections.Specialized;
 
 public sealed partial class ObjectCatalog<T>
 {
-    public class FindResult : IObjectCatalogSearch, IObjectCatalogFindResult
+    public sealed class ObjectCatalogResult : IObjectCatalogSearch, IObjectCatalogResult<T>
     {
         private int[]? _result;
         private WeakReference<ObjectCatalog<T>>? _parent;
@@ -14,33 +14,33 @@ public sealed partial class ObjectCatalog<T>
 
         public int Count => _result?.Length ?? 0;
 
-        internal FindResult(){}
+        internal ObjectCatalogResult(){}
 
-        public static IObjectCatalogFindResult From(int[]? result, ObjectCatalog<T>? parent)
+        public static IObjectCatalogResult<T> From(int[]? result, ObjectCatalog<T>? parent)
         {
             if (parent is null)
                 return DefaultResult;
             
-            return new FindResult()
+            return new ObjectCatalogResult()
             {
                 _parent = new WeakReference<ObjectCatalog<T>>(parent),
                 _result = result ?? DefaultArrInt
             };
         }
         
-        public IObjectCatalogFindResult Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey)
+        public IObjectCatalogResult<T> Find<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(accessor, valueKey, _result) ?? DefaultArrInt;
             return this;
         }
 
-        public IObjectCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
+        public IObjectCatalogResult<T> Find<TNormal>(Enum indexType, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(indexType.ToString(), valueKey, _result) ?? DefaultArrInt;
             return this;
         }
 
-        public IObjectCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey)
+        public IObjectCatalogResult<T> Find<TNormal>(string accessKey, TNormal? valueKey)
         {
             _result = Parent?.FindInternal(accessKey, valueKey, _result) ?? DefaultArrInt;
             return this;

@@ -26,12 +26,12 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     private readonly Dictionary<string, IObjectCatalogIndex> _indices = new();
     private readonly List<Reference> _sources = new();
     private readonly ObjectCatalogType _refType;
-    private readonly bool _allowNullKeys;
+    private readonly ObjectCatalogBehavior _typeConstraint;
     private readonly WeakReference<ObservableCollection<T>>? _observable = null;
     private static readonly T?[] DefaultArrNullT = Array.Empty<T>();
     private static readonly T[] DefaultArrT = Array.Empty<T>();
     private static readonly int[] DefaultArrInt = Array.Empty<int>();
-    private static readonly FindResult DefaultResult = new FindResult();
+    private static readonly ObjectCatalogResult DefaultResult = new ObjectCatalogResult();
 
     public int Count => _sources.Count;
     
@@ -70,7 +70,10 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         }
 
         _refType = refType;
-        _allowNullKeys = behavior == ObjectCatalogBehavior.IndexNulls;
+        _typeConstraint = behavior;
+        if (source is null)
+            return;
+        
         foreach (var item in source)
         {
             if (item is null)
@@ -135,12 +138,12 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         var index = _sources.Count;
         _sources.Add(new Reference(item, _refType));
         foreach (var valueIndex in _indices.Values)
-            valueIndex.Add(item, index, _allowNullKeys);
+            valueIndex.Add(item, index);
     }
 
         
-    public IObjectCatalogFindResult Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey) 
-        => FindResult.From(FindInternal(accessor, valueKey, null), this);
+    public IObjectCatalogResult<T> Find<TKey,TNormal>(Expression<Func<T,TKey?>> accessor, TNormal? valueKey) 
+        => ObjectCatalogResult.From(FindInternal(accessor, valueKey, null), this);
     public int[] FindInternal<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey, int[]? filter)
     {
         if (accessor is null)
@@ -148,25 +151,22 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
 
         var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
         if (!_indices.ContainsKey(name))
-            AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null);
+            AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null, _typeConstraint);
 
         return FindInternal(name, valueKey, null);
     }
 
     
-    public IObjectCatalogFindResult Find<TNormal>(Enum indexType, TNormal? valueKey)
-        => FindResult.From(FindInternal(indexType.ToString(), valueKey, null), this);
+    public IObjectCatalogResult<T> Find<TNormal>(Enum indexType, TNormal? valueKey)
+        => ObjectCatalogResult.From(FindInternal(indexType.ToString(), valueKey, null), this);
     
     
-    public IObjectCatalogFindResult Find<TNormal>(string accessKey, TNormal? valueKey) 
-        => FindResult.From(FindInternal(accessKey, valueKey, null), this);
+    public IObjectCatalogResult<T> Find<TNormal>(string accessKey, TNormal? valueKey) 
+        => ObjectCatalogResult.From(FindInternal(accessKey, valueKey, null), this);
     internal int[] FindInternal<TNormal>(string accessKey, TNormal? valueKey, int[]? filter)
     {
         if (string.IsNullOrWhiteSpace(accessKey))
             throw new ArgumentException("Accessor cannot be null or empty.");
-
-        if (valueKey is null && !_allowNullKeys)
-            return DefaultArrInt;
 
         _indices.TryGetValue(accessKey, out var index);
         return index?.Find(valueKey, filter) ?? DefaultArrInt;
@@ -185,7 +185,7 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
 
         var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
         if (!_indices.ContainsKey(name))
-            AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null);
+            AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null, _typeConstraint);
 
         return FirstOrDefault(name, valueKey);
     }
@@ -201,9 +201,6 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     {
         if (string.IsNullOrWhiteSpace(accessKey))
             throw new ArgumentException("Accessor cannot be null or empty.");
-
-        if (valueKey is null && !_allowNullKeys)
-            return null;
 
         _indices.TryGetValue(accessKey, out var index);
                 
@@ -222,12 +219,18 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         
         
     public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp) 
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile());
+        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp, ObjectCatalogBehavior constraint) 
+        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), constraint);
 
     public IObjectCatalog<T> AddIndex<TResult>(Enum indexType, Func<T, TResult> accessor)
-        => AddIndex(indexType.ToString(), accessor);
+        => AddIndex(indexType.ToString(), accessor, _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult>(Enum indexType, Func<T, TResult> accessor, ObjectCatalogBehavior constraint)
+        => AddIndex(indexType.ToString(), accessor, constraint);
 
     public IObjectCatalog<T> AddIndex<TResult>(string accessKey, Func<T, TResult> accessor)
+        => AddIndex(accessKey, accessor, _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult>(string accessKey, Func<T, TResult> accessor, ObjectCatalogBehavior constraint)
     {
         if (accessKey is null)
             throw new ArgumentException("IndexPath cannot be null.");
@@ -238,19 +241,23 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         if (_indices.ContainsKey(accessKey))
             return this;
             
-        AddIndexInternal<TResult,TResult>(accessKey, accessor, null);
+        AddIndexInternal<TResult,TResult>(accessKey, accessor, null, constraint);
         return this;
     }
         
-        
-        
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer)
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer);
-
+        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer, _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer, ObjectCatalogBehavior constraint)
+        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer, constraint);
+    
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexType, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
-        => AddIndex(indexType.ToString(), accessor, normalizer);
+        => AddIndex(indexType.ToString(), accessor, normalizer, _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexType, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer, ObjectCatalogBehavior constraint)
+        => AddIndex(indexType.ToString(), accessor, normalizer, constraint);
         
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(string accessKey, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
+        => AddIndex(accessKey, accessor, normalizer, _typeConstraint);
+    public IObjectCatalog<T> AddIndex<TResult, TNormal>(string accessKey, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer, ObjectCatalogBehavior constraint)
     {
         if (accessKey is null)
             throw new ArgumentException("IndexPath cannot be null.");
@@ -264,17 +271,17 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         if (_indices.ContainsKey(accessKey))
             return this;
             
-        AddIndexInternal(accessKey, accessor, normalizer);
+        AddIndexInternal(accessKey, accessor, normalizer, constraint);
         return this;
     }
         
         
         
-    private IObjectCatalogIndex? AddIndexInternal<TResult,TNormal>(string name, Func<T, TResult?> accessor, Func<TResult?, TNormal?>? normalizer)
+    private IObjectCatalogIndex? AddIndexInternal<TResult,TNormal>(string name, Func<T, TResult?> accessor, Func<TResult?, TNormal?>? normalizer, ObjectCatalogBehavior constraint)
     {
         IObjectCatalogIndex index = normalizer is null
-            ? new ValueIndex<TResult>(name, accessor)
-            : new NormalizedIndex<TResult, TNormal>(name, accessor, normalizer);
+            ? new ValueIndex<TResult>(name, accessor, constraint)
+            : new NormalizedIndex<TResult, TNormal>(name, accessor, normalizer, constraint);
                     
             
         for (int i = 0; i < _sources.Count; i++)
@@ -283,7 +290,7 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
             if (item is null)
                 continue;
 
-            index.Add(item, i, _allowNullKeys);
+            index.Add(item, i);
         }
 
         _indices.Add(name, index);

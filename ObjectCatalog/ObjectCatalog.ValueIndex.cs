@@ -10,14 +10,16 @@ public sealed partial class ObjectCatalog<T>
         private Func<T, TResult?> _accessor;
         private Dictionary<TResult, HashSet<int>> _valueIndex = new();
         private HashSet<int> _nullCase = new();
+        private ObjectCatalogBehavior _types;
         private bool _isDisposed = false;
 
         public string AccessKey { get; private set; }
         
-        internal ValueIndex(string accessKey, Func<T, TResult?> accessor)
+        internal ValueIndex(string accessKey, Func<T, TResult?> accessor, ObjectCatalogBehavior constraint)
         {
             AccessKey = accessKey;
             _accessor = accessor;
+            _types = constraint;
         }
 
         public int[]? Find(object? key, int[]? filter)
@@ -39,11 +41,11 @@ public sealed partial class ObjectCatalog<T>
             return filter?.Intersect(index).ToArray() ?? index.ToArray();
         }
 
-        public void Add(T obj, int objectId, bool allowNullKeys)
+        public void Add(T obj, int objectId)
         {
             var value = _accessor(obj);
 
-            if (value is null && !allowNullKeys)
+            if (value is null && _types != ObjectCatalogBehavior.IndexNulls)
                 return;
 
             if (value is null)

@@ -11,16 +11,18 @@ public sealed partial class ObjectCatalog<T>
         private Func<TResult?, TNormal?> _normalizer;
         private Dictionary<TNormal, HashSet<int>> _valueIndex = new();
         private HashSet<int> _nullCase = new();
+        private ObjectCatalogBehavior _types;
         private bool _isDisposed = false;
 
         public string AccessKey { get; private set; }
 
 
-        internal NormalizedIndex(string accessKey, Func<T, TResult?> accessor, Func<TResult?, TNormal?> normalizer)
+        internal NormalizedIndex(string accessKey, Func<T, TResult?> accessor, Func<TResult?, TNormal?> normalizer, ObjectCatalogBehavior constraint)
         {
             AccessKey = accessKey;
             _accessor = accessor;
             _normalizer = normalizer;
+            _types = constraint;
         }
         
 
@@ -39,11 +41,11 @@ public sealed partial class ObjectCatalog<T>
         }
         
 
-        public void Add(T obj, int objectId, bool allowNullKeys)
+        public void Add(T obj, int objectId)
         {
             var value = _normalizer(_accessor(obj));
 
-            if (value is null && !allowNullKeys)
+            if (value is null && _types != ObjectCatalogBehavior.IndexNulls)
                 return;
 
             if (value is null)
