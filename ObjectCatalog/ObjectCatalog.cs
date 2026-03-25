@@ -12,8 +12,8 @@ using System.Reflection;
 /*
 Why is the SortedDictionary so much slower than all the others?
 ----------------------------------------------------------------------------------------------------------- 
-It's a tradeoff between CPU-usage and RAM-usage. Dictionary is faster than SortedDictionary because it is
-implemented as a hash-table, an algorithm that is designed to use excess memory in order to use as few
+Answer: It's a tradeoff between CPU-usage and RAM-usage. Dictionary is faster than SortedDictionary because 
+it is implemented as a hash-table, an algorithm that is designed to use excess memory in order to use as few
 operations as possible. SortedDictionary is a binary-search-tree, an algorithm that is designed to use as
 many operations as necessary to use as little RAM as possible.
 */
@@ -149,11 +149,11 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
 
-        var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
+        var name = ResolveExpKey(accessor);
         if (!_indices.ContainsKey(name))
             AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null, _typeConstraint);
 
-        return FindInternal(name, valueKey, null);
+        return FindInternal(name, valueKey, filter);
     }
 
     
@@ -183,11 +183,11 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
 
-        var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
+        var name = ResolveExpKey(accessor);
         if (!_indices.ContainsKey(name))
             AddIndexInternal<TKey, TKey>(name, accessor.Compile(), null, _typeConstraint);
 
-        return FirstOrDefault(name, valueKey);
+        return FirstInternal(name, valueKey, filter);
     }
 
     
@@ -219,9 +219,9 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
         
         
     public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp) 
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), _typeConstraint);
+        => AddIndex(ResolveExpKey(accessExp), accessExp?.Compile(), _typeConstraint);
     public IObjectCatalog<T> AddIndex<TResult>(Expression<Func<T, TResult>> accessExp, ObjectCatalogBehavior constraint) 
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), constraint);
+        => AddIndex(ResolveExpKey(accessExp), accessExp?.Compile(), constraint);
 
     public IObjectCatalog<T> AddIndex<TResult>(Enum indexType, Func<T, TResult> accessor)
         => AddIndex(indexType.ToString(), accessor, _typeConstraint);
@@ -246,9 +246,9 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
     }
         
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer)
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer, _typeConstraint);
+        => AddIndex(ResolveExpKey(accessExp), accessExp?.Compile(), normalizer, _typeConstraint);
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Expression<Func<T, TResult>> accessExp, Func<TResult?, TNormal?> normalizer, ObjectCatalogBehavior constraint)
-        => AddIndex(accessExp?.ToString().Replace(accessExp.Parameters.First().Name, "$"), accessExp?.Compile(), normalizer, constraint);
+        => AddIndex(ResolveExpKey(accessExp), accessExp?.Compile(), normalizer, constraint);
     
     public IObjectCatalog<T> AddIndex<TResult, TNormal>(Enum indexType, Func<T, TResult> accessor, Func<TResult?, TNormal?> normalizer)
         => AddIndex(indexType.ToString(), accessor, normalizer, _typeConstraint);
@@ -297,14 +297,24 @@ public sealed partial class ObjectCatalog<T> : IObjectCatalog<T> where T : class
             
         return index;
     }
-     
+
+    private static string ResolveExpKey(LambdaExpression accessor)
+    {
+        if (accessor is null)
+            return string.Empty;
+
+        var param = accessor.Parameters.First().Name;
+        var result = accessor.ToString();
+        var index = result.IndexOf('.');
+        return "$ => $." + result.Substring(++index).Replace($" {param}.", " $.");
+    }
     
     public TKey[] GetKeys<TKey>(Expression<Func<T,TKey>> accessor)
     {
         if (accessor is null)
             throw new ArgumentException("Accessor cannot be null and must be a valid lambda expression.");
 
-        var name = accessor.ToString().Replace(accessor.Parameters.First().Name, "$");
+        var name = ResolveExpKey(accessor);
         if (!_indices.ContainsKey(name))
             return Array.Empty<TKey>();
 

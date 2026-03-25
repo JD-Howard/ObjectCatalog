@@ -47,6 +47,9 @@ public sealed partial class ObjectCatalog<T>
         T? FirstOrDefault<TKey, TNormal>(Expression<Func<T, TKey?>> accessor, TNormal? valueKey);
         T? FirstOrDefault<TNormal>(Enum indexType, TNormal? valueKey);
         T? FirstOrDefault<TNormal>(string accessKey, TNormal? valueKey);
+        
+        // This is a WIP that allows us to do things like ParentItem.Description, _ => _.Contains("stuff")
+        //T? Search<TNormal>(Expression<Func<T, TNormal>> accessor, Predicate<TNormal> valueKey);
     }
 
     public interface IObjectCatalogMaterialize // Result & IObjectCatalog
